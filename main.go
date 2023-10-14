@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"os"
 	"strconv"
 	"strings"
 	"sync"
@@ -16,6 +17,7 @@ var searchMode string
 var query string
 var page int
 var Wall bool
+var outputLocation string
 
 type postPreview struct {
 	Title            string    `json:"title"`
@@ -62,6 +64,7 @@ func main() {
 	queryPTR := flag.String("query", "pics", "Use subreddit name or post url")
 	pagePTR := flag.Int("page", 0, "Page number")
 	WallPTR := flag.Bool("Wall", false, "Debug mode")
+	outputLocationPTR := flag.String("o", "CLI", "Where to save the data. Use \"CLI\", to output to console")
 
 	// Parse Flags
 	flag.Parse()
@@ -69,6 +72,7 @@ func main() {
 	query = *queryPTR
 	page = *pagePTR
 	Wall = *WallPTR
+	outputLocation = *outputLocationPTR
 	//fmt.Printf("mode: %s\nquery: %s\npage: %d\n", searchMode, query, page)
 
 	collector = *colly.NewCollector()
@@ -127,34 +131,19 @@ func fabricateOutput(s subreddit, p []post, e []error) {
 		handleError(err)
 	}
 
-	// Convert the JSON byte slice to a string
-	fmt.Println(string(jsonData))
-}
-
-/*func walkCommentArea(i int, e *colly.HTMLElement) {
-	// Get all of the permalinks
-	var permalinks []string
-	e.ForEach("div.comment", func(i int, e *colly.HTMLElement) {
-		parentClass := e.DOM.Parent().Parent().AttrOr("class", "")
-		if !strings.Contains(parentClass, "child") {
-			link := "https://old.reddit.com" + e.Attr("data-permalink")
-			permalinks = append(permalinks, link)
-		}
-	})
-
-	fmt.Printf("Links: %d\n", len(permalinks))
-
-	// Isolate links and run async
-	var comments []comment
-	comments = make([]comment, len(permalinks))
-	var wg sync.WaitGroup
-	for i := 0; i < len(permalinks); i++ {
-		wg.Add(1)
-		go runCommentPermalink(permalinks[i], i, &comments, &wg)
+	// Print
+	if outputLocation == "CLI" {
+		fmt.Println(string(jsonData))
+		return
 	}
-	wg.Wait()
 
-}*/
+	// Save as file
+	file, err := os.Create(outputLocation)
+	handleError(err)
+	defer file.Close()
+	_, err = file.Write(jsonData)
+	handleError(err)
+}
 
 func runCommentPermalink(link string, position int, destination *[]comment, signal *sync.WaitGroup) {
 	defer signal.Done()
@@ -369,5 +358,7 @@ func searchPost(link string) (p post) {
 	return this
 }
 
+//* Wall of slurs:
 //! FUCK OFF
 //! YOU PIECE OF SHIT
+//! LET's FUCKING GO
