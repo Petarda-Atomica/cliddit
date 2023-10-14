@@ -39,6 +39,7 @@ type comment struct {
 
 type post struct {
 	Title            string    `json:"title"`
+	Content          string    `json:"content"`
 	Image            string    `json:"image"`
 	Votes            int       `json:"votes"`
 	Author           string    `json:"author"`
@@ -164,7 +165,7 @@ func runCommentPermalink(link string, position int, destination *[]comment, sign
 	c.OnHTML("div.comment", func(g *colly.HTMLElement) {
 		this := comment{}
 		var err error
-		if g.DOM.Parent().HasClass("sitetable") {
+		if g.DOM.Parent().Parent().HasClass("commentarea") {
 
 			// Get this comment info
 			this.Content = ""
@@ -173,10 +174,6 @@ func runCommentPermalink(link string, position int, destination *[]comment, sign
 				e.ForEach("div.md", func(i int, h *colly.HTMLElement) { //* Content
 					h.ForEach("p", func(i int, f *colly.HTMLElement) {
 						this.Content = this.Content + f.Text + "\n"
-						for i := 0; i < position; i++ {
-							fmt.Printf("\t")
-						}
-						fmt.Println(this.Content)
 					})
 				})
 
@@ -209,20 +206,20 @@ func runCommentPermalink(link string, position int, destination *[]comment, sign
 			//fmt.Print("\n\nData:\n", permalinks, "\n\n")
 
 			// Process permalinks
-			//var comments []comment
 			comments := []comment{}
 			comments = make([]comment, len(permalinks))
 			var wg sync.WaitGroup
+			(*destination)[position] = this
 			for i := 0; i < len(permalinks); i++ {
 				wg.Add(1)
 				iCopy := i // Create a local copy of i
-				func(iCopy int) {
+				go func(iCopy int) {
 					runCommentPermalink(permalinks[iCopy], iCopy, &comments, &wg)
 				}(iCopy)
 			}
 			wg.Wait()
-			this.Chain = comments
-			(*destination)[position] = this
+			(*destination)[position].Chain = comments
+			//fmt.Println(this.Content)
 		}
 	})
 
@@ -303,6 +300,16 @@ func searchPost(link string) (p post) {
 			this.Title = e.Text
 		})
 
+		e.ForEach("div.md", func(i int, e *colly.HTMLElement) { //* Content
+			e.ForEach("p", func(i int, h *colly.HTMLElement) {
+				if !h.DOM.Parent().Parent().Parent().Parent().Parent().Parent().HasClass("self") {
+					return
+				}
+
+				this.Content = h.Text
+			})
+		})
+
 		e.ForEach("img.preview", func(i int, e *colly.HTMLElement) { //* Image
 			this.Image = e.Attr("src")
 		})
@@ -339,7 +346,7 @@ func searchPost(link string) (p post) {
 			})
 
 		})
-		fmt.Printf("Permalinks: %d\n", len(permalinks))
+		//fmt.Printf("Permalinks: %d\n", len(permalinks))
 
 		// Isolate links and run async
 		var comments []comment
@@ -363,4 +370,4 @@ func searchPost(link string) (p post) {
 }
 
 //! FUCK OFF
-//  TODO: fix everything about the posts
+//! YOU PIECE OF SHIT
